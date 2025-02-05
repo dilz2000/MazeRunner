@@ -1,5 +1,15 @@
 # models/union_find.py
 
+# Kruskal's algorithm characteristics present:
+# Randomly shuffle walls
+# Use Union-Find to detect connections
+# Only remove walls between unconnected cells
+# Prevent cycle formation
+# Ensure complete maze connectivity
+#
+# The union() method is crucial: it checks if cells are already connected before removing a wall,
+# which is the core mechanism of Kruskal's algorithm.
+
 class UnionFind:
     def __init__(self, size):
         self.parent = list(range(size))

@@ -1,5 +1,14 @@
 # views/maze_canvas.py
 
+# Handles drawing the maze on a tkinter canvas
+# Key methods:
+#
+# draw_maze(): Renders maze walls
+# highlight_start_end(): Marks start and end points
+# highlight_cell(): Temporarily highlights cells
+# highlight_path(): Marks final path
+# add_wall() and remove_wall(): Allows wall modification
+
 import tkinter as tk
 
 class MazeCanvas(tk.Canvas):
@@ -31,12 +40,38 @@ class MazeCanvas(tk.Canvas):
                     self.wall_ids[wall_tag] = ((r, c), (r + 1, c))
                 if cell.walls['bottom']:
                     wall_tag = f"wall_{r}_{c}_bottom"
-                    wall = self.create_line(x, y + self.cell_size, x + self.cell_size, y + self.cell_size, fill="black", width=3, tags=wall_tag)
+                    wall = self.create_line(x, y + self.cell_size, x + self.cell_size, y + self.cell_size, fill="black",
+                                            width=3, tags=wall_tag)
                     self.wall_ids[wall_tag] = ((r, c), (r, c + 1))
                 if cell.walls['right']:
                     wall_tag = f"wall_{r}_{c}_right"
-                    wall = self.create_line(x + self.cell_size, y, x + self.cell_size, y + self.cell_size, fill="black", width=3, tags=wall_tag)
+                    wall = self.create_line(x + self.cell_size, y, x + self.cell_size, y + self.cell_size, fill="black",
+                                            width=3, tags=wall_tag)
                     self.wall_ids[wall_tag] = ((r, c), (r + 1, c))
+
+    def highlight_start_end(self, start, end):
+        """Highlight the start and end points."""
+        maze = self.maze
+        start_row, start_col = divmod(start, maze.cols)
+        end_row, end_col = divmod(end, maze.cols)
+
+        # Draw start point
+        x_start = start_col * self.cell_size + 10
+        y_start = start_row * self.cell_size + 10
+        self.create_rectangle(
+            x_start + 4, y_start + 4,
+            x_start + self.cell_size - 4, y_start + self.cell_size - 4,
+            fill="green", outline="", tags="start"
+        )
+
+        # Draw end point
+        x_end = end_col * self.cell_size + 10
+        y_end = end_row * self.cell_size + 10
+        self.create_rectangle(
+            x_end + 4, y_end + 4,
+            x_end + self.cell_size - 4, y_end + self.cell_size - 4,
+            fill="red", outline="", tags="end"
+        )
 
     def highlight_start_end(self, start, end):
         """Highlight the start and end points."""

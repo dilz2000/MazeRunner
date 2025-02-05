@@ -1,4 +1,11 @@
 # models/maze.py
+# Responsible for creating the maze structure
+# Uses Kruskal's algorithm for maze generation
+# Key methods:
+#
+# build_walls(): Creates all possible walls between cells
+# generate_maze(): Randomly removes walls to create paths
+# get_neighbors(): Finds accessible neighboring cells
 
 import random
 from .union_find import UnionFind

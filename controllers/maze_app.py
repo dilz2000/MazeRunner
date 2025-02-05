@@ -1,5 +1,17 @@
 # controllers/maze_app.py
 
+# maze_app.py (Application Controller):
+#
+#
+# Manages user interface and maze generation flow
+# Key responsibilities:
+#
+# Create UI elements
+# Handle maze generation
+# Manage start/end point randomization
+# Control canvas sizing and updates
+# Handle user interactions
+
 import tkinter as tk
 from tkinter import ttk, messagebox
 import heapq
@@ -44,12 +56,12 @@ class MazeApp:
 
         # -- PATHFINDING ALGORITHM SELECTION --
         solver_label = ttk.Label(control_frame, text="Select Solver Algorithm:", font=("Arial", 12))
-        solver_label.grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
+        solver_label.grid(row=0, column=2, sticky=tk.W, padx=5, pady=5)
 
         self.solver_var = tk.StringVar(value="BFS")
         solver_options = ["BFS", "DFS", "Dijkstra's", "A*", "Jump Point Search"]
         solver_menu = ttk.OptionMenu(control_frame, self.solver_var, self.solver_var.get(), *solver_options)
-        solver_menu.grid(row=1, column=1, sticky=tk.W, padx=5, pady=5)
+        solver_menu.grid(row=0, column=3, sticky=tk.W, padx=5, pady=5)
 
         # -- BUTTONS --
         button_frame = ttk.Frame(control_frame)
@@ -71,17 +83,18 @@ class MazeApp:
         tools_frame = ttk.Frame(control_frame)
         tools_frame.grid(row=3, column=0, columnspan=2, pady=10)
 
-        self.draw_wall_button = ttk.Button(tools_frame, text="Draw Walls", command=self.set_draw_mode, state="disabled")
-        self.draw_wall_button.grid(row=0, column=0, padx=5)
+        self.draw_wall_button = ttk.Button(button_frame, text="Draw Walls", command=self.set_draw_mode, state="disabled")
+        self.draw_wall_button.grid(row=0, column=4, padx=5)
 
-        self.erase_wall_button = ttk.Button(tools_frame, text="Erase Walls", command=self.set_erase_mode,
+        self.erase_wall_button = ttk.Button(button_frame, text="Erase Walls", command=self.set_erase_mode,
                                             state="disabled")
-        self.erase_wall_button.grid(row=0, column=1, padx=5)
+        self.erase_wall_button.grid(row=0, column=5, padx=5)
 
         # -- STATUS BAR --
         self.status_var = tk.StringVar()
         status_bar = ttk.Label(root, textvariable=self.status_var, relief=tk.SUNKEN, anchor=tk.W)
         status_bar.pack(side=tk.BOTTOM, fill=tk.X)
+
 
         # -- CANVAS FOR MAZE --
         self.maze_canvas = None  # Will be initialized after maze generation
