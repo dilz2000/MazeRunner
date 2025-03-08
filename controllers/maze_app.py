@@ -1,113 +1,259 @@
 # controllers/maze_app.py
 
 # maze_app.py (Application Controller):
-#
-#
 # Manages user interface and maze generation flow
 # Key responsibilities:
-#
 # Create UI elements
 # Handle maze generation
 # Manage start/end point randomization
 # Control canvas sizing and updates
 # Handle user interactions
-
+import customtkinter as ctk
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import messagebox, filedialog
+from PIL import Image, ImageTk
+import numpy as np
 import heapq
 import random
 from collections import deque
 
+from image_processor import preprocess_image, extract_maze_structure, detect_grid_lines, build_grid_from_hough_lines, \
+    group_nearby_lines, adjust_grid_lines_to_maze, find_openings_in_outer_walls, determine_cell_from_opening, \
+    extract_clean_maze, find_start_end_nodes
 from models.maze import Maze
+from models.maze_image import assign_start_end_cells, MazeL
+from solvers.greedy_search import GreedyBestFirstSolver
+from solvers.iterative_deepening_DFS_solver import IterativeDeepeningDFSSolver
+from solvers.jump_point_search_solver import JumpPointSearchSolver
+from solvers.wilson_solver import WilsonSolver
 from views.maze_canvas import MazeCanvas
 from solvers.bfs_solver import BFSSolver
 from solvers.dfs_solver import DFSSolver
 from solvers.dijkstra_solver import DijkstraSolver
 from solvers.a_star_solver import AStarSolver
-from solvers.jump_point_search_solver import JumpPointSearchSolver
+
 
 
 class MazeApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Maze Generator and Pathfinding Visualizer")
+        self.root.title("Maze Runner")
         self.root.geometry("1200x900")
         self.root.resizable(True, True)
 
-        # Apply a modern theme
-        style = ttk.Style(root)
-        style.theme_use('clam')  # Options: 'clam', 'alt', 'default', 'classic'
+        ctk.set_appearance_mode("System")
+        ctk.set_default_color_theme("dark-blue")
 
-        # Create main frames
-        control_frame = ttk.Frame(root, padding="10 10 10 10")
-        control_frame.pack(side=tk.TOP, fill=tk.X)
+        control_frame = ctk.CTkFrame(root, width=400, corner_radius=10)
+        control_frame.pack(side=tk.LEFT, fill=tk.Y, padx=10, pady=10)
 
-        canvas_frame = ttk.Frame(root, padding="10 10 10 10")
-        canvas_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        # -- SIZE LABEL AND ENTRY --
+        size_frame = ctk.CTkFrame(control_frame, corner_radius=10)
+        size_frame.pack(fill=tk.X, pady=5, padx=5)
 
-        # -- SIZE LABEL --
-        size_label = ttk.Label(control_frame, text="Enter Size (rows):", font=("Arial", 12))
-        size_label.grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
+        size_label = ctk.CTkLabel(size_frame, text="Maze Size (rows):", font=("Arial", 14))
+        size_label.pack(side=tk.LEFT, padx=5, pady=5)
 
-        # -- SIZE ENTRY --
-        self.size_entry = ttk.Entry(control_frame, width=10)
-        self.size_entry.grid(row=0, column=1, sticky=tk.W, padx=5, pady=5)
+        self.size_entry = ctk.CTkEntry(size_frame, width=100, font=("Arial", 14))
+        self.size_entry.pack(side=tk.RIGHT, padx=5, pady=5)
         self.size_entry.insert(0, "10")  # Default value
 
         # -- PATHFINDING ALGORITHM SELECTION --
-        solver_label = ttk.Label(control_frame, text="Select Solver Algorithm:", font=("Arial", 12))
-        solver_label.grid(row=0, column=2, sticky=tk.W, padx=5, pady=5)
+        solver_frame = ctk.CTkFrame(control_frame, corner_radius=10)
+        solver_frame.pack(fill=tk.X, pady=5, padx=5)
+
+        solver_label = ctk.CTkLabel(solver_frame, text="Solver Algorithm:", font=("Arial", 14))
+        solver_label.pack(side=tk.LEFT, padx=5, pady=5)
 
         self.solver_var = tk.StringVar(value="BFS")
-        solver_options = ["BFS", "DFS", "Dijkstra's", "A*", "Jump Point Search"]
-        solver_menu = ttk.OptionMenu(control_frame, self.solver_var, self.solver_var.get(), *solver_options)
-        solver_menu.grid(row=0, column=3, sticky=tk.W, padx=5, pady=5)
+        solver_options = ["BFS", "DFS", "Dijkstra's", "A*", "Jump Point Search", "Wilson", "Greedy Search", "Iterative Deepening DFS"]
+        solver_menu = ctk.CTkOptionMenu(solver_frame, variable=self.solver_var, values=solver_options, font=("Arial", 14))
+        solver_menu.pack(side=tk.RIGHT, padx=5, pady=5)
 
         # -- BUTTONS --
-        button_frame = ttk.Frame(control_frame)
-        button_frame.grid(row=2, column=0, columnspan=2, pady=15)
+        button_frame = ctk.CTkFrame(control_frame, corner_radius=10, fg_color="#ADD8E6")
+        button_frame.pack(fill=tk.X, pady=10, padx=5)
 
-        self.generate_button = ttk.Button(button_frame, text="Generate Maze", command=self.generate_maze)
-        self.generate_button.grid(row=0, column=0, padx=5)
+        self.generate_button = ctk.CTkButton(button_frame, text="Generate Maze", command=self.generate_maze, font=("Arial", 14))
+        self.generate_button.pack(fill=tk.X, pady=5, padx=5)
 
-        self.solve_button = ttk.Button(button_frame, text="Solve Maze", command=self.solve_maze, state="disabled")
-        self.solve_button.grid(row=0, column=1, padx=5)
+        self.upload_button = ctk.CTkButton(button_frame, text="Upload Image", command=self.upload_image,font=("Arial", 14))
+        self.upload_button.pack(fill=tk.X, pady=5, padx=5)
 
-        self.reset_button = ttk.Button(button_frame, text="Reset Maze", command=self.reset_maze, state="disabled")
-        self.reset_button.grid(row=0, column=2, padx=5)
+        self.solve_button = ctk.CTkButton(button_frame, text="Solve Maze", command=self.solve_maze, state="disabled", font=("Arial", 14))
+        self.solve_button.pack(fill=tk.X, pady=5, padx=5)
 
-        self.clear_path_button = ttk.Button(button_frame, text="Clear Path", command=self.clear_path, state="disabled")
-        self.clear_path_button.grid(row=0, column=3, padx=5)
+        self.reset_button = ctk.CTkButton(button_frame, text="Reset Maze", command=self.reset_maze, state="disabled", font=("Arial", 14))
+        self.reset_button.pack(fill=tk.X, pady=5, padx=5)
+
+        self.clear_path_button = ctk.CTkButton(button_frame, text="Clear Path", command=self.clear_path, state="disabled", font=("Arial", 14))
+        self.clear_path_button.pack(fill=tk.X, pady=5, padx=5)
 
         # -- CUSTOM MAZE TOOLS --
-        tools_frame = ttk.Frame(control_frame)
-        tools_frame.grid(row=3, column=0, columnspan=2, pady=10)
+        tools_frame = ctk.CTkFrame(control_frame, corner_radius=10, fg_color="#ADD8E6")
+        tools_frame.pack(fill=tk.X, pady=10, padx=5)
 
-        self.draw_wall_button = ttk.Button(button_frame, text="Draw Walls", command=self.set_draw_mode, state="disabled")
-        self.draw_wall_button.grid(row=0, column=4, padx=5)
+        self.draw_wall_button = ctk.CTkButton(tools_frame, text="Draw Walls", command=self.set_draw_mode, state="disabled", font=("Arial", 14))
+        self.draw_wall_button.pack(side=tk.LEFT, padx=5, pady=5, expand=True)
 
-        self.erase_wall_button = ttk.Button(button_frame, text="Erase Walls", command=self.set_erase_mode,
-                                            state="disabled")
-        self.erase_wall_button.grid(row=0, column=5, padx=5)
+        self.erase_wall_button = ctk.CTkButton(tools_frame, text="Erase Walls", command=self.set_erase_mode, state="disabled", font=("Arial", 14))
+        self.erase_wall_button.pack(side=tk.RIGHT, padx=5, pady=5, expand=True)
 
         # -- STATUS BAR --
         self.status_var = tk.StringVar()
-        status_bar = ttk.Label(root, textvariable=self.status_var, relief=tk.SUNKEN, anchor=tk.W)
-        status_bar.pack(side=tk.BOTTOM, fill=tk.X)
 
+        # -- CANVAS FOR MAZE WITH SCROLLBARS --
+        self.canvas_frame = ctk.CTkFrame(root)
+        self.canvas_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        # -- CANVAS FOR MAZE --
-        self.maze_canvas = None  # Will be initialized after maze generation
+        # Create a container frame for the canvas and scrollbars
+        self.canvas_container = ctk.CTkFrame(self.canvas_frame)
+        self.canvas_container.pack(fill=tk.BOTH, expand=True)
 
-        # Bind mouse events for custom maze creation
-        root.bind("<Configure>", self.on_resize)
+        # Add horizontal scrollbar at the bottom
+        self.h_scrollbar = ctk.CTkScrollbar(self.canvas_container, orientation="horizontal")
+        self.h_scrollbar.pack(side=tk.BOTTOM, fill=tk.X)
+
+        # Add vertical scrollbar on the right
+        self.v_scrollbar = ctk.CTkScrollbar(self.canvas_container, orientation="vertical")
+        self.v_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Add canvas
+        self.canvas = tk.Canvas(self.canvas_container, bg="white",
+                                xscrollcommand=self.h_scrollbar.set, yscrollcommand=self.v_scrollbar.set)
+        self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # Configure scrollbars
+        self.h_scrollbar.configure(command=self.canvas.xview)
+        self.v_scrollbar.configure(command=self.canvas.yview)
+
+        # Bind canvas configure event to update scroll region
+        self.canvas.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
 
         # Initialize maze-related variables
         self.maze = None
         self.path = []
-        self.animation_speed = 50  # Milliseconds between steps
+        self.animation_speed = 0  # Milliseconds between steps
         self.draw_mode = False
         self.erase_mode = False
+        self.maze_canvas = None
+        self.solving_time = 0
+        self.start = None
+        self.end = None
+
+        # Add a frame for status and timing information
+        status_frame = ctk.CTkFrame(control_frame, corner_radius=10)
+        status_frame.pack(fill=tk.X, pady=5, padx=5)
+
+        # Status variable and label
+        self.status_var = tk.StringVar()
+        status_label = ctk.CTkLabel(status_frame, textvariable=self.status_var, font=("Arial", 14))
+        status_label.pack(fill=tk.X, padx=5, pady=5)
+
+        # Time display label
+        self.time_var = tk.StringVar(value="Time: -")
+        time_label = ctk.CTkLabel(status_frame, textvariable=self.time_var, font=("Arial", 14))
+        time_label.pack(fill=tk.X, padx=5, pady=5)
+
+    def upload_image(self):
+        """Allow the user to upload an image, process it, and use it as a maze."""
+
+        # Open file dialog to select an image
+        file_path = filedialog.askopenfilename(
+            title="Select Image",
+            filetypes=[("Image files", "*.png;*.jpg;*.jpeg;*.bmp")]
+        )
+
+        if not file_path:  # User canceled
+            return
+
+        try:
+            # Process the image to extract maze structure
+            image, combined_edges = preprocess_image(file_path)
+            processed_maze = extract_maze_structure(combined_edges, image)
+
+            # Detect grid lines
+            h_grid_lines, v_grid_lines = detect_grid_lines(processed_maze)
+            h_grid_hough, v_grid_hough, h_line_img, v_line_img = build_grid_from_hough_lines(processed_maze)
+
+            # Merge detected grid lines
+            final_h_grid = sorted(list(set(h_grid_lines + h_grid_hough)))
+            final_v_grid = sorted(list(set(v_grid_lines + v_grid_hough)))
+
+            # Remove duplicate lines
+            final_h_grid = group_nearby_lines(final_h_grid)
+            final_v_grid = group_nearby_lines(final_v_grid)
+
+            # Adjust grid lines for better alignment
+            adjusted_h_grid_lines, adjusted_v_grid_lines = adjust_grid_lines_to_maze(final_h_grid, final_v_grid,
+                                                                                     processed_maze)
+
+            # Find openings in the outer walls
+            openings = find_openings_in_outer_walls(image, processed_maze, adjusted_h_grid_lines, adjusted_v_grid_lines)
+
+            # Determine nearest cells to openings
+            nearest_cells = []
+            for opening in openings:
+                cell = determine_cell_from_opening(opening, adjusted_h_grid_lines, adjusted_v_grid_lines)
+                nearest_cells.append(cell)
+
+            # Extract a clean binary representation of the maze
+            clean_maze = extract_clean_maze(image, processed_maze, adjusted_h_grid_lines, adjusted_v_grid_lines,
+                                            openings, nearest_cells)
+
+            # Find start and end nodes (red cells)
+            start_coords, end_coords = find_start_end_nodes(clean_maze)
+
+            if start_coords is None or end_coords is None:
+                messagebox.showerror("Error", "Could not detect two distinct red nodes for start and end points.")
+                return
+
+            # Build the maze structure
+            self.maze = MazeL(adjusted_h_grid_lines, adjusted_v_grid_lines, processed_maze)
+            self.maze = assign_start_end_cells(self.maze, start_coords, end_coords, adjusted_h_grid_lines,
+                                               adjusted_v_grid_lines)
+
+            # Store start and end as indexed cells
+            self.start = self.maze.start_cell
+            self.end = self.maze.end_cell
+            print("checkpoint 1")
+
+            # Visualize the extracted maze on the canvas
+            self.visualize_maze()
+            print("checkpoint 3")
+
+            # Enable solving and editing options
+            self.solve_button.configure(state="normal")
+            self.reset_button.configure(state="normal")
+            self.draw_wall_button.configure(state="normal")
+            self.erase_wall_button.configure(state="normal")
+            self.clear_path_button.configure(state="disabled")
+
+            self.status_var.set("Maze uploaded and processed successfully.")
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to process image: {e}")
+            self.status_var.set("Failed to load image.")
+
+    # def upload_image(self):
+    #     """Allow the user to upload an image to use as a maze template."""
+    #
+    #     # Open file dialog to select an image
+    #     file_path = filedialog.askopenfilename(
+    #         title="Select Image",
+    #         filetypes=[("Image files", "*.png;*.jpg;*.jpeg;*.bmp")]
+    #     )
+    #
+    #     if not file_path:  # User canceled
+    #         return
+    #
+    #     try:
+    #         image = Image.open(file_path)
+    #         print("uploaded")
+    #
+    #     except Exception as e:
+    #         messagebox.showerror("Error", f"Failed to process image: {e}")
+    #         self.status_var.set("Failed to load image.")
 
     def on_resize(self, event):
         """Handle window resizing to adjust the maze canvas."""
@@ -169,6 +315,10 @@ class MazeApp:
             self.erase_wall_button
         ]
         for btn in buttons:
+            if not isinstance(btn, ctk.CTkButton):  # Ensure it's a button widget
+                print(f"⚠ WARNING: {btn} is not a button! Skipping...")
+                continue
+
             if btn not in exclude:
                 btn.configure(state=state)
 
@@ -186,30 +336,56 @@ class MazeApp:
         return start_id, end_id
 
     def open_start_end_walls(self):
-        """Open the top wall of the start cell and the bottom wall of the end cell."""
-        maze = self.maze
+        """
+        Open the top wall of the start cell and the bottom wall of the end cell.
+        This should only apply to generated mazes, NOT uploaded image-based mazes.
+        """
+        print("Checkpoint 2")
+        if isinstance(self.maze, MazeL):
+            print("⚠ Skipping wall opening for uploaded maze (MazeL).")
+            return  # Do nothing for uploaded mazes, they already have proper walls
+
+        if not self.maze or not self.start or not self.end:
+            return  # Safety check
 
         # Open start cell's top wall
-        start_row, start_col = divmod(self.start, maze.cols)
+        start_row, start_col = divmod(self.start, self.maze.cols)
         self.maze.grid[start_row][start_col].walls['top'] = False
 
         # Open end cell's bottom wall
-        end_row, end_col = divmod(self.end, maze.cols)
+        end_row, end_col = divmod(self.end, self.maze.cols)
         self.maze.grid[end_row][end_col].walls['bottom'] = False
+
+        print(f"✅ Opened start wall at ({start_row}, {start_col}) and end wall at ({end_row}, {end_col})")
 
     def visualize_maze(self):
         """Initialize and draw the maze on the canvas."""
         if self.maze_canvas:
             self.maze_canvas.destroy()
-
+        print("checkpoint 4")
         # Determine cell size based on current window size
         canvas_width = self.root.winfo_width() - 40
         canvas_height = self.root.winfo_height() - 200  # Adjust based on control frame height
         cell_size = max(min(canvas_width, canvas_height) // self.maze.size, 20)
 
-        self.maze_canvas = MazeCanvas(self.root, self.maze, cell_size, width=self.maze.size * cell_size + 20,
+        # Create a frame inside the canvas to hold the maze
+        self.maze_frame = tk.Frame(self.canvas)
+        self.canvas.create_window((0, 0), window=self.maze_frame, anchor="nw")
+
+        # Initialize the maze canvas
+        self.maze_canvas = MazeCanvas(self.maze_frame, self.maze, cell_size, width=self.maze.size * cell_size + 20,
                                       height=self.maze.size * cell_size + 20)
-        self.maze_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.maze_canvas.pack()
+
+        # Update scroll region
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        print("checkpoint 5")
+
+        if self.start is None or self.end is None:
+            print("⚠ Warning: Start or End node is missing!")
+            return  # Exit early if no valid start/end
+
+        print(f"Start Cell: {self.start}, End Cell: {self.end}")  # Debugging
 
         # Highlight start and end points
         self.maze_canvas.highlight_start_end(self.start, self.end)
@@ -228,6 +404,7 @@ class MazeApp:
             self.maze_canvas.highlight_start_end(self.start, self.end)
             self.maze_canvas.clear_path()
 
+
     def solve_maze(self):
         """Initiate the selected pathfinding algorithm."""
         if not self.maze:
@@ -241,6 +418,14 @@ class MazeApp:
 
         start = self.start
         end = self.end
+
+        print(f"DEBUG: Raw Start = {start}, Raw End = {end}")  # Debugging
+
+        # Ensure start and end are in integer format for divmod()
+        if isinstance(start, tuple):
+            start = start[0] * self.maze.cols + start[1]  # Convert to 1D index
+        if isinstance(end, tuple):
+            end = end[0] * self.maze.cols + end[1]  # Convert to 1D index
 
         # Disable buttons during solving
         self.toggle_buttons(state="disabled", exclude=["reset_button", "clear_path_button"])
@@ -258,6 +443,14 @@ class MazeApp:
             solver = AStarSolver(self.maze, start, end, self.maze_canvas, self.animation_speed)
         elif algorithm == "Jump Point Search":
             solver = JumpPointSearchSolver(self.maze, start, end, self.maze_canvas, self.animation_speed)
+        elif algorithm == "Wilson":
+            solver = WilsonSolver(self.maze, start, end, self.maze_canvas, self.animation_speed)
+
+        elif algorithm == "Greedy Search":
+            solver = GreedyBestFirstSolver(self.maze, start, end, self.maze_canvas, self.animation_speed)
+
+        elif algorithm == "Iterative Deepening DFS":
+            solver = IterativeDeepeningDFSSolver(self.maze, start, end, self.maze_canvas, self.animation_speed)
         else:
             messagebox.showerror("Unknown Algorithm", f"Solver '{algorithm}' is not implemented.")
             self.status_var.set("Failed to solve maze.")
@@ -268,12 +461,19 @@ class MazeApp:
         if solver:
             solver.solve(self.on_solver_complete)
 
-    def on_solver_complete(self, success):
+    def on_solver_complete(self, success, solving_time):
         """Callback when the solver completes."""
         if success:
             self.status_var.set("Pathfinding complete.")
         else:
             self.status_var.set("No solution found.")
+
+            # Update the time display
+            if solving_time > 0:
+                self.time_var.set(f"Execution Time: {solving_time:.6f} seconds")
+            else:
+                self.time_var.set("Time: -")
+
         self.toggle_buttons(state="normal")
         self.clear_path_button.configure(state="normal")
 

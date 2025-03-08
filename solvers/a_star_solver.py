@@ -1,5 +1,5 @@
 # solvers/a_star_solver.py
-
+import time
 from .base_solver import BaseSolver
 import heapq
 
@@ -11,6 +11,8 @@ class AStarSolver(BaseSolver):
         heapq.heappush(heap, (0, self.start))
         distances = {node: float('inf') for node in range(maze.rows * maze.cols)}
         distances[self.start] = 0
+
+        start_time = time.time()
 
         def heuristic(a, b):
             """Manhattan distance heuristic."""
@@ -28,11 +30,14 @@ class AStarSolver(BaseSolver):
                 return
             self.visited.add(current)
             if current == self.end:
+                end_time = time.time()
+                solving_time = end_time - start_time
                 path = self.reconstruct_path()
                 if path:
                     self.animate_path(callback)
                 else:
                     callback(False)
+                print(f"A* Solving Time: {solving_time:.6f} seconds")
                 return
             row, col = divmod(current, maze.cols)
             neighbors = self.maze.get_neighbors(row, col)

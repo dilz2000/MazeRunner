@@ -12,6 +12,8 @@ class BaseSolver(ABC):
         self.path = []
         self.parent = {}
         self.visited = set()
+        self.solving_time = 0
+
 
     @abstractmethod
     def solve(self, callback):
@@ -36,4 +38,5 @@ class BaseSolver(ABC):
         """Animate the final path."""
         for idx, node in enumerate(self.path):
             self.canvas.after(idx * self.animation_speed, lambda n=node: self.canvas.highlight_path(n))
-        callback(True)  # Indicate completion
+        solving_time = getattr(self, 'solving_time', 0)
+        callback(True, solving_time)

@@ -69,3 +69,13 @@ class Maze:
         if not cell.walls['right'] and col < self.cols - 1:
             neighbors.append((row, col + 1))
         return neighbors
+
+    def is_valid(self, row, col):
+        # Check if the given cell coordinates are valid and accessible.
+        # Check if coordinates are within maze boundaries
+        if row < 0 or row >= self.rows or col < 0 or col >= self.cols:
+            return False
+        return True
+
+    def is_wall(self, row, col):
+        return self.grid[row][col] == 1

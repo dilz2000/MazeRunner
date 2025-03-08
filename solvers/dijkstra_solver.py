@@ -2,6 +2,7 @@
 
 from .base_solver import BaseSolver
 import heapq
+import time
 
 
 class DijkstraSolver(BaseSolver):
@@ -11,6 +12,8 @@ class DijkstraSolver(BaseSolver):
         heapq.heappush(heap, (0, self.start))
         distances = {node: float('inf') for node in range(maze.rows * maze.cols)}
         distances[self.start] = 0
+
+        start_time = time.time()
 
         def step():
             if not heap:
@@ -22,11 +25,14 @@ class DijkstraSolver(BaseSolver):
                 return
             self.visited.add(current)
             if current == self.end:
+                end_time = time.time()
+                solving_time = end_time - start_time
                 path = self.reconstruct_path()
                 if path:
                     self.animate_path(callback)
                 else:
                     callback(False)
+                print(f"Dijkstra Solving Time: {solving_time:.6f} seconds")
                 return
             row, col = divmod(current, maze.cols)
             neighbors = self.maze.get_neighbors(row, col)

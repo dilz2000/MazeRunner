@@ -51,9 +51,17 @@ class MazeCanvas(tk.Canvas):
 
     def highlight_start_end(self, start, end):
         """Highlight the start and end points."""
+        print("checkpoint 6")
         maze = self.maze
-        start_row, start_col = divmod(start, maze.cols)
-        end_row, end_col = divmod(end, maze.cols)
+        print("checkpoint 7")
+        if isinstance(start, tuple):  # MazeL (Uploaded Image)
+            start_row, start_col = start
+            end_row, end_col = end
+        else:  # Maze (Generated Maze)
+            start_row, start_col = divmod(start, maze.cols)
+            end_row, end_col = divmod(end, maze.cols)
+
+        print("checkpoint 8")
 
         # Draw start point
         x_start = start_col * self.cell_size + 10
@@ -75,9 +83,23 @@ class MazeCanvas(tk.Canvas):
 
     def highlight_start_end(self, start, end):
         """Highlight the start and end points."""
+        print("checkpoint 6")
+
         maze = self.maze
-        start_row, start_col = divmod(start, maze.cols)
-        end_row, end_col = divmod(end, maze.cols)
+        print("checkpoint 7")
+
+        # Ensure correct format for start/end based on maze type
+        if isinstance(start, tuple):  # MazeL (Uploaded Image)
+            print("Detected tuple-based start/end values!")
+            start_row, start_col = start
+            end_row, end_col = end
+        else:  # Maze (Generated Maze)
+            print("Detected integer-based start/end values!")
+            start_row, start_col = divmod(start, maze.cols)
+            end_row, end_col = divmod(end, maze.cols)
+
+        print(f"Start Cell: ({start_row}, {start_col}), End Cell: ({end_row}, {end_col})")  # Debugging
+        print("checkpoint 8")
 
         # Draw start point
         x_start = start_col * self.cell_size + 10
@@ -96,6 +118,7 @@ class MazeCanvas(tk.Canvas):
             x_end + self.cell_size - 4, y_end + self.cell_size - 4,
             fill="red", outline="", tags="end"
         )
+        print("Checkpoint 9: Successfully drew start/end points.")
 
     def add_wall(self, wall_tag):
         """Add a wall by setting the corresponding cell's wall to True and redraw the wall."""
@@ -161,7 +184,7 @@ class MazeCanvas(tk.Canvas):
         self.create_rectangle(
             x + 4, y + 4,
             x + self.cell_size - 4, y + self.cell_size - 4,
-            fill="blue", outline="", tags="path"
+            fill="darkblue", outline="", tags="path"
         )
         self.update_idletasks()
 

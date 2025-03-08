@@ -6,3 +6,6 @@ class Cell:
         self.col = col
         # Walls: top, bottom, left, right
         self.walls = {'top': True, 'bottom': True, 'left': True, 'right': True}
+
+    def __repr__(self):
+        return f"Cell({self.row}, {self.col}, walls={self.walls})"
