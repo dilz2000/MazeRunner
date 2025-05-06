@@ -105,7 +105,7 @@ Built with Tkinter, our visualization:
 
 - [Team Member 1](https://github.com/dilz2000) - Dilranga Dissanayake
 - [Team Member 2](https://github.com/NipuniTennakoon) - Nipuni Tennakoon
-- [Team Member 3](https://github.com/Thithira-Paranawithana) - Thithira-Paranawithana
+- [Team Member 3](https://github.com/Thithira-Paranawithana) - Thithira Paranawithana
 
 
 ## 🙏 Acknowledgements
