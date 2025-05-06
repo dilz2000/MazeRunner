@@ -1,8 +1,4 @@
 # 🧩 MazeRunners: Advanced Maze Generation & Pathfinding System
-
-<div align="center">
-  
-  ![MazeRunners Logo](https://cdn.vectorstock.com/i/1000v/40/74/maze-puzzle-labyrinth-brain-teaser-kids-game-vector-12864074.jpg)
   
   **An intelligent maze generation, extraction & pathfinding visualization platform**
   
